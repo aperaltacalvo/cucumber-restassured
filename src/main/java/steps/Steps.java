@@ -1,19 +1,22 @@
 package steps;
 
-import io.restassured.specification.RequestSpecification;
-import java.util.Map;
-import org.apache.commons.lang3.StringUtils;
-import cucumber.api.java.en.And;
-import cucumber.api.java.en.Given;
 import cucumber.api.java.en.Then;
+import io.restassured.path.json.JsonPath;
+import io.restassured.specification.RequestSpecification;
+
+import java.io.File;
+
+import java.io.FileNotFoundException;
+
+import cucumber.api.java.en.Given;
 import cucumber.api.java.en.When;
 import io.restassured.response.Response;
 import io.restassured.response.ValidatableResponse;
-import org.apache.http.util.Asserts;
+import org.junit.Assert;
+
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.core.IsEqual.equalTo;
+
 
 public class Steps {
     private Response response;
@@ -22,21 +25,37 @@ public class Steps {
 
     @Given("^A simple GET request to api (.*?)$")
     public void simple_get(String uri) {
-        response = given().request().get(uri);
+        response = given().header("Content-Type","application/json; charset=UTF-8").request().get(uri);
+    }
+    @Given("^A DELETE request to api (.*?)$")
+    public void simple_delete(String uri){
+        response = given().header("Content-Type","application/json; charset=UTF-8").request().delete(uri);
+
     }
 
-    @Given("^A body request with this data (.*?)$")
-    public void simple_post(String body){
-        request = given().body(body);
-        request.post();
+    @When("^I send a POST with body file (.*?) to URL (.*?)$")
+    public void postWithBody(String bodyFile, String url) throws FileNotFoundException {
+        request = given().header("Content-Type","application/json; charset=UTF-8").body(new File(ClassLoader.getSystemClassLoader().getResource(bodyFile).getFile()));
+        response = request.post(url);
     }
 
+    @When("^I send a PUT with body file (.*?) to URL (.*?)$")
+    public void putWithBodyAndHeaders(String bodyFile, String url) throws FileNotFoundException {
+        request = given().header("Content-Type","application/json; charset=UTF-8").body(new File(ClassLoader.getSystemClassLoader().getResource(bodyFile).getFile()));
+        response = request.put(url);
+    }
 
     /**
      * asserts on json arrays
      */
-    @And("^Check that response code is (.*?)$")
-    public void response_contains_in_any_order(String code) {
-        Asserts.check(response.getStatusCode() == Integer.parseInt(code), "Code expected is " + code + " and code found is " + response.getStatusCode());
+    @Then("^Check that response code is (.*?)$")
+    public void response_contains_code(String code) {
+        given().response().statusCode(Integer.parseInt(code)).validate(response);
+    }
+    @Then("^Check that response body is (.*?)$")
+    public void response_contains_body(String responseBody) {
+        JsonPath jsonExpected = new JsonPath(ClassLoader.getSystemClassLoader().getResource(responseBody));
+        JsonPath jsonObtained = response.getBody().jsonPath();
+        Assert.assertEquals("Different bodies",jsonExpected.get().toString(),jsonObtained.get().toString());
     }
 }
